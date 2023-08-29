@@ -1,0 +1,115 @@
+// SPDX-License-Identifier: MIT
+// OpenZeppelin Contracts (last updated v4.9.0) (governance/extensions/GovernorCountingSimple.sol)
+
+pragma solidity ^0.8.0;
+
+import "../Governor.sol";
+
+/**
+ * @dev Extension of {Governor} for simple, 3 options, vote counting.
+ *
+ * _Available since v4.3._
+ */
+abstract contract GovernorCountingSimple is Governor {
+    /**
+     * @dev Supported vote types. Matches Governor Bravo ordering.
+     */
+    enum VoteType {
+        Against,
+        For,
+        Abstain
+    }
+
+    struct ProposalVote {
+        uint256 againstVotes;
+        uint256 forVotes;
+        uint256 abstainVotes;
+        mapping(address => bool) hasVoted;
+    }
+
+    mapping(uint256 => ProposalVote) private _proposalVotes;
+
+    /**
+     * @dev See {IGovernor-COUNTING_MODE}.
+     */
+    // solhint-disable-next-line func-name-mixedcase
+    function COUNTING_MODE() public pure virtual override returns (string memory) {
+        return "support=bravo&quorum=for,abstain";
+    }
+
+    modifier canLog() override virtual{
+        if(DEBUG_GovernorCountingSimple){
+            _;
+        }
+    }
+    function getContractName() view public override virtual returns(string memory){
+        return 'GovernorCountingSimple';
+    }
+
+    /**
+     * @dev See {IGovernor-hasVoted}.
+     */
+    function hasVoted(uint256 proposalId, address account) public view virtual override returns (bool) {
+        return _proposalVotes[proposalId].hasVoted[account];
+    }
+
+    /**
+     * @dev Accessor to the internal vote counts.
+     */
+    function proposalVotes(
+        uint256 proposalId
+    ) public view virtual returns (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes) {
+        ProposalVote storage proposalVote = _proposalVotes[proposalId];
+        return (proposalVote.againstVotes, proposalVote.forVotes, proposalVote.abstainVotes);
+    }
+
+    /**
+     * @dev See {Governor-_quorumReached}.
+        赞成票+弃权票>=quorum,quorum是用户传给合约的参数。
+        在openzeppelin的逻辑里，不反对就是赞成！
+     */
+    function _quorumReached(uint256 proposalId) internal view virtual override returns (bool) {
+        ProposalVote storage proposalVote = _proposalVotes[proposalId];
+        SLOG(' quorum(proposalSnapshot(proposalId))', quorum(proposalSnapshot(proposalId)));
+        SLOG(' proposalVote.forVotes', proposalVote.forVotes);
+        SLOG(' proposalVote.abstainVotes', proposalVote.abstainVotes);
+        return quorum(proposalSnapshot(proposalId)) <= proposalVote.forVotes + proposalVote.abstainVotes;
+    }
+
+    /**
+     * @dev See {Governor-_voteSucceeded}. In this module, the forVotes must be strictly over the againstVotes.
+     赞成票必须大于反对票
+     */
+    function _voteSucceeded(uint256 proposalId) internal view virtual override returns (bool) {
+        ProposalVote storage proposalVote = _proposalVotes[proposalId];
+        SLOG(' proposalVote.againstVotes', proposalVote.againstVotes);
+        return proposalVote.forVotes > proposalVote.againstVotes;
+    }
+
+    /**
+     * @dev See {Governor-_countVote}. In this module, the support follows the `VoteType` enum (from Governor Bravo).
+     累计得票，加的是账户的token余额
+     */
+    function _countVote(
+        uint256 proposalId,
+        address account,
+        uint8 support,
+        uint256 weight,
+        bytes memory // params
+    ) internal virtual override {
+        ProposalVote storage proposalVote = _proposalVotes[proposalId];
+
+        require(!proposalVote.hasVoted[account], "GovernorVotingSimple: vote already cast");
+        proposalVote.hasVoted[account] = true;
+
+        if (support == uint8(VoteType.Against)) {
+            proposalVote.againstVotes += weight;
+        } else if (support == uint8(VoteType.For)) {
+            proposalVote.forVotes += weight;
+        } else if (support == uint8(VoteType.Abstain)) {
+            proposalVote.abstainVotes += weight;
+        } else {
+            revert("GovernorVotingSimple: invalid value for enum VoteType");
+        }
+    }
+}
