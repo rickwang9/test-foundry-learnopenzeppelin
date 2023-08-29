@@ -19,10 +19,10 @@ contract TestGovernanceContract  is DSTest{
     uint8 VOTE_FOR = 1;
     uint8 VOTE_AGAINST = 0;
     uint8 VOTE_ABSTAIN = 2;
-    string reason = "just for practice";
+    string reason = "Yes";
 
     //投票通过后，最少延长120(秒),才能执行任务
-    uint MIN_DELAY = 120;
+    uint MIN_DELAY = 100;
 
     //需要总投票人数的2%才能通过，否则放弃提案
     uint QUORUM_PERCENTAGE = 2;
@@ -37,7 +37,7 @@ contract TestGovernanceContract  is DSTest{
     //修改参数的值
     uint NEW_FEE_VALUE = 5;
     //修改提案的描述
-    string PROPOSAL_DESCRIPTION = "Change target age";
+    string PROPOSAL_DESCRIPTION = "Change target fee";
 //    string PROPOSAL_DESCRIPTION = "Change target age#proposer=0x3333333333333333333333333333333333333333";
 
     address ADDRESS_ZERO = 0x0000000000000000000000000000000000000000;
